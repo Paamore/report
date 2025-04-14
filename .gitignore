@@ -1,0 +1,25 @@
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Fichiers d'environnement
+.env
+.env.*
+
+# Fichiers Excel temporaires
+*.xlsx
+
+# Fichiers générés par Python
+__pycache__/
+*.pyc
+
+# Fichiers PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+workspace.xml
+
+# Fichiers logs et divers
+*.log
+.DS_Store
+Thumbs.db
