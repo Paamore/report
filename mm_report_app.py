@@ -48,7 +48,14 @@ def set_custom_css():
         .stApp {
             background-color: #f7f9fc;
         }
-
+        /* Customisation des messages d'alerte */
+        div[data-testid="stNotification"] {
+        color: black !important;
+        background-color: #f9e79f !important; /* Jaune pâle */
+        border: 1px solid #f1c40f;
+        border-radius: 8px;
+        padding: 0.75em;
+        }
         /* CORRECTION TEXTE INVISIBLE */
         section[data-testid="stSidebar"] input,
         section[data-testid="stSidebar"] textarea {
