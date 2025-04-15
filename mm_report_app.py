@@ -17,14 +17,18 @@ def set_custom_css():
             --text-white: white;
             --header-color: #2c3e50;
         }
-        html, body, [class*="css"] {
+        html, body {
             color: var(--text-white);
             background-color: var(--main-bg);
         }
+        section.main > div {
+            color : black;
+            }
         section[data-testid="stSidebar"] {
             background-color: var(--sidebar-bg);
+            color : var(--text-white);
         }
-        [data-testid="stSidebar"] * {
+        section[data-testid="stSidebar"] * {
             color: var(--text-white) !important;
         }
         div[data-testid="stMarkdownContainer"] h1,
@@ -55,6 +59,7 @@ import pandas as pd
 import re
 from io import BytesIO
 import time
+import openpyxl
 
 TIMEOUT_DURATION = 15 * 60  # 15 minutes
 
@@ -66,6 +71,7 @@ if time.time() - st.session_state["last_active"] > TIMEOUT_DURATION:
     if st.button("Se reconnecter"):
         st.session_state["auth"] = False
         st.query_params.clear()
+        st.rerun()
     st.stop()
 
 # Fonction pour mettre en forme le tableau généré
