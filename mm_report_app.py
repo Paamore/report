@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit.runtime.credentials import check_credentials
 
 st.set_page_config(page_title="Phoning report", page_icon=":bar_chart:", layout="wide")
 
@@ -17,7 +18,7 @@ def set_custom_css():
             --header-color: #2c3e50;
         }
         div[data-testid="stMarkdownContainer"] {
-    color: var(--text-white);
+        color: black;
         }
         section.main > div {
             color: black;
@@ -64,6 +65,26 @@ def set_custom_css():
         }
         input, textarea {
             color: black !important;
+            background-color : white;
+        }
+            /* Correction spécifique pour les DataFrames */
+        div[data-testid="stDataFrame"] {
+        color: black !important;
+        }
+        /* Correction pour les tableaux Markdown */
+        div[data-testid="stMarkdownContainer"] table {
+        color: black !important;
+        }
+        .stDownloadButton>button {
+        background-color: var(--primary) !important;
+        color: var(--text-white) !important;
+        border-radius: 6px;
+        padding: 0.4em 1em;
+        border: none;
+        }
+        /* Correction pour le texte dans la colonne de droite */
+        div[data-testid="column"]:last-child div[data-testid="stMarkdownContainer"] {
+        color: black !important; /* Cible spécifiquement la colonne de droite */
         }
     </style>
     """, unsafe_allow_html=True)
@@ -77,7 +98,7 @@ from io import BytesIO
 import time
 import openpyxl
 
-TIMEOUT_DURATION = 15 * 60  # 15 minutes
+TIMEOUT_DURATION = 60 # * 60  # 15 minutes
 
 if "last_active" not in st.session_state:
     st.session_state["last_active"] = time.time()
@@ -86,8 +107,11 @@ if time.time() - st.session_state["last_active"] > TIMEOUT_DURATION:
     st.warning("Session expirée pour inactivité. Veuillez vous reconnecter.")
     if st.button("Se reconnecter"):
         st.session_state["auth"] = False
-        st.query_params.clear()
+        # st.query_params.clear()
+        st.experimental_set_query_params()
+        st.session_state["last_active"] = 0
         st.rerun()
+    check_credentials()
     st.stop()
 
 # Fonction pour mettre en forme le tableau généré
@@ -246,8 +270,8 @@ if uploaded_file:
         # Filtrage des données selon les dates choisies
         mask_1 = df_1["Timestamp"].dt.date.between(start_date, end_date)
         mask_2 = df_2["Timestamp"].dt.date.between(start_date, end_date)
-        df_1 = df_1[mask_1]
-        df_2 = df_2[mask_2]
+        df_1 = df_1[mask_1].copy()
+        df_2 = df_2[mask_2].copy()
     # --------------------------------------
     # 3. Appel de la fonction de reporting
     # --------------------------------------
@@ -261,21 +285,17 @@ if uploaded_file:
         left_col, right_col = st.columns([3, 1])
         if reporting_type == "Déblocage":
             left_col.subheader("Point des déblocages")
-            # left_col.dataframe(style_dataframe(deb_report),
-            #                    hide_index=True, use_container_width=True)
             left_col.write(style_dataframe(deb_report).to_html(),
                                unsafe_allow_html=True)
             right_col.markdown(f"""
             # 
             ##### ☑ Débloqué : {format_number(deb_report['UNLOCK'].sum())}
             ##### ☑ Réinitialisé : {format_number(deb_report['RESET_ONLY'].sum())}
-            ##### ☑ Total : {format_number(deb_report['TOTAL'].sum()):,}
+            ##### ☑ Total : {format_number(deb_report['TOTAL'].sum())}
             """, unsafe_allow_html=True)
             to_export = deb_report
         else:
             left_col.subheader("Point des reset pin Agent")
-            # left_col.write(style_dataframe(agent_report),
-            #                    hide_index=True, use_container_width=True)
             left_col.write(style_dataframe(agent_report).to_html(),
                                unsafe_allow_html=True)
             right_col.markdown(f"""
