@@ -5,7 +5,6 @@ st.set_page_config(page_title="Phoning report", page_icon=":bar_chart:", layout=
 def set_custom_css():
     st.markdown("""
     <style>
-        /* Masquer certains éléments Streamlit  */
         #MainMenu {visibility: hidden;}
         header {visibility: hidden;}
         footer {visibility: hidden;}
@@ -22,11 +21,11 @@ def set_custom_css():
             background-color: var(--main-bg);
         }
         section.main > div {
-            color : black;
-            }
+            color: black;
+        }
         section[data-testid="stSidebar"] {
             background-color: var(--sidebar-bg);
-            color : var(--text-white);
+            color: var(--text-white);
         }
         section[data-testid="stSidebar"] * {
             color: var(--text-white) !important;
@@ -50,8 +49,19 @@ def set_custom_css():
         .stApp {
             background-color: #f7f9fc;
         }
+
+        /* CORRECTION TEXTE INVISIBLE */
+        section[data-testid="stSidebar"] input,
+        section[data-testid="stSidebar"] textarea {
+            color: black !important;
+            background-color: white !important;
+        }
+        input, textarea {
+            color: black !important;
+        }
     </style>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
 set_custom_css()
 
 from streamlit import sidebar, session_state
