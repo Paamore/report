@@ -210,7 +210,6 @@ else:
         st.session_state["auth"] = False
         st.query_params.clear()
         st.rerun()
-
 # --------------------------------------
 # 2. Upload du fichier
 # --------------------------------------
@@ -222,6 +221,26 @@ if uploaded_file:
     df_1 = pd.read_excel(uploaded_file, sheet_name='unlock', parse_dates=['Timestamp'])
     df_2 = pd.read_excel(uploaded_file, sheet_name='reset_pin', parse_dates=['Timestamp'])
     st.session_state["last_active"] = time.time()
+    # --------------------------------------
+    # Sélection de la période de reporting
+    # --------------------------------------
+    min_date = min(df_1['Timestamp'].min(), df_2['Timestamp'].min()).date()
+    max_date = max(df_1['Timestamp'].max(), df_2['Timestamp'].max()).date()
+
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input("📅 Date de début", value=min_date, min_value=min_date, max_value=max_date)
+    with col2:
+        end_date = st.date_input("📅 Date de fin", value=max_date, min_value=min_date, max_value=max_date)
+
+    if start_date > end_date:
+        st.error("⚠ La date de début doit être antérieure ou égale à la date de fin.")
+    else:
+        # Filtrage des données selon les dates choisies
+        mask_1 = df_1["Timestamp"].dt.date.between(start_date, end_date)
+        mask_2 = df_2["Timestamp"].dt.date.between(start_date, end_date)
+        df_1 = df_1[mask_1]
+        df_2 = df_2[mask_2]
     # --------------------------------------
     # 3. Appel de la fonction de reporting
     # --------------------------------------
