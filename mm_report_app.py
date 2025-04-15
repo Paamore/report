@@ -16,9 +16,8 @@ def set_custom_css():
             --text-white: white;
             --header-color: #2c3e50;
         }
-        html, body {
-            color: var(--text-white);
-            background-color: var(--main-bg);
+        div[data-testid="stMarkdownContainer"] {
+    color: var(--text-white);
         }
         section.main > div {
             color: black;
