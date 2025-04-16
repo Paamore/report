@@ -108,6 +108,7 @@ if time.time() - st.session_state["last_active"] > TIMEOUT_DURATION:
     st.warning("Session expirée ! Veuillez vous reconnecter.")
     if st.button("Se reconnecter"):
         st.session_state["auth"] = False
+        st.query_params.clear()
         st.session_state["last_active"] = time.time()
         st.rerun()
     st.stop()
@@ -175,12 +176,10 @@ def mm_report(deb, rp):
     # Conversion des noms de colonnes en majuscules
     rp.columns = [colname.upper() for colname in list(rp.columns)]
     deb.columns = [colname.upper() for colname in list(deb.columns)]
+    deb['MSISDN'] = deb['LOG'].map(extract)
+    rp['MSISDN'] = rp['LOG'].map(extract)
     rp = rp[rp['USERNAME'].str.contains('WEBC_|webc_')]
     deb = deb[deb['USERNAME'].str.contains('WEBC_|webc_')]
-
-    # Extraction des numéros de téléphone
-    for df in [deb, rp]:
-        df['MSISDN'] = df['LOG'].map(extract)
 
     # Extraction du motif de blocage
     deb['LOCK DESCRIPTION'] = deb['LOG'].map(lambda x: x.split(': ')[-1])
@@ -238,6 +237,7 @@ else:
     st.sidebar.markdown("---")
     if st.sidebar.button("Se déconnecter"):
         st.session_state["auth"] = False
+        st.query_params.clear()
         st.rerun()
 # --------------------------------------
 # 2. Upload du fichier
@@ -270,24 +270,26 @@ if uploaded_file:
         start_date = st.date_input("📅 Date de début", value=min_date, min_value=min_date, max_value=max_date)
     with col2:
         end_date = st.date_input("📅 Date de fin", value=max_date, min_value=min_date, max_value=max_date)
+    st.session_state["last_active"] = time.time()
 
     if start_date > end_date:
         st.error("⚠ La date de début doit être antérieure ou égale à la date de fin.")
-    else:
-        # Filtrage des données selon les dates choisies
-        mask_1 = df_1["Timestamp"].dt.date.between(start_date, end_date)
-        mask_2 = df_2["Timestamp"].dt.date.between(start_date, end_date)
-        df_1 = df_1[mask_1].copy()
-        df_2 = df_2[mask_2].copy()
     # --------------------------------------
     # 3. Appel de la fonction de reporting
     # --------------------------------------
-    reporting_type = st.selectbox("Choisir le reporting à afficher :",
-                                  ["Déblocage", "Réinitialisation Agent"])
-    if reporting_type:
-        st.session_state["last_active"] = time.time()
-
+    reporting_type = st.selectbox(
+        "Choisir le reporting à afficher :",
+        ["-- Sélectionnez --", "Déblocage", "Réinitialisation Agent"],
+        index=0  # Option par défaut = placeholder
+    )
+    if reporting_type == "-- Sélectionnez --":
+        st.stop()  # ou affiche un message
     if st.button("Générer le rapport"):
+        # Filtrage des données selon les dates choisies
+        mask_1 = df_1["Timestamp"].dt.date.between(start_date, end_date)
+        mask_2 = df_2["Timestamp"].dt.date.between(start_date, end_date)
+        df_1 = df_1[mask_1]
+        df_2 = df_2[mask_2]
         deb_report, agent_report = mm_report(df_1, df_2)
         left_col, right_col = st.columns([3, 1])
         if reporting_type == "Déblocage":
@@ -301,6 +303,7 @@ if uploaded_file:
             ##### ☑ Total : {format_number(deb_report['TOTAL'].sum())}
             """, unsafe_allow_html=True)
             to_export = deb_report
+            st.session_state["last_active"] = time.time()
         else:
             left_col.subheader("Point des reset pin Agent")
             left_col.write(style_dataframe(agent_report).to_html(),
