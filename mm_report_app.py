@@ -1,5 +1,4 @@
 import streamlit as st
-from streamlit.runtime.credentials import check_credentials
 
 st.set_page_config(page_title="Phoning report", page_icon=":bar_chart:", layout="wide")
 
@@ -98,21 +97,21 @@ from io import BytesIO
 import time
 import openpyxl
 
-TIMEOUT_DURATION = 60 # * 60  # 15 minutes
+TIMEOUT_DURATION = 60 * 15  # 15 minutes
 
 if "last_active" not in st.session_state:
     st.session_state["last_active"] = time.time()
+if "auth" not in st.session_state:
+    st.session_state["auth"] = False
 
 if time.time() - st.session_state["last_active"] > TIMEOUT_DURATION:
-    st.warning("Session expirée pour inactivité. Veuillez vous reconnecter.")
+    st.warning("Session expirée ! Veuillez vous reconnecter.")
     if st.button("Se reconnecter"):
         st.session_state["auth"] = False
-        # st.query_params.clear()
-        st.experimental_set_query_params()
-        st.session_state["last_active"] = 0
+        st.session_state["last_active"] = time.time()
         st.rerun()
-    check_credentials()
     st.stop()
+st.session_state["last_active"] = time.time()
 
 # Fonction pour mettre en forme le tableau généré
 def style_dataframe(df):
@@ -155,8 +154,8 @@ def convert_df_to_excel(df):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
-# Fonction de connexion
 
+# Fonction de connexion
 def check_credentials():
     st.sidebar.header("Connexion")
     username = st.sidebar.text_input("Nom d'utilisateur")
@@ -239,7 +238,6 @@ else:
     st.sidebar.markdown("---")
     if st.sidebar.button("Se déconnecter"):
         st.session_state["auth"] = False
-        st.query_params.clear()
         st.rerun()
 # --------------------------------------
 # 2. Upload du fichier
@@ -249,9 +247,18 @@ st.title("PHONING REPORT")
 uploaded_file = st.file_uploader("Joindre le fichier Excel", type=["xlsx"])
 
 if uploaded_file:
-    df_1 = pd.read_excel(uploaded_file, sheet_name='unlock', parse_dates=['Timestamp'])
-    df_2 = pd.read_excel(uploaded_file, sheet_name='reset_pin', parse_dates=['Timestamp'])
-    st.session_state["last_active"] = time.time()
+    try:
+        # Tentative de lecture des feuilles Excel
+        df_1 = pd.read_excel(uploaded_file, sheet_name='unlock', parse_dates=['Timestamp'])
+        df_2 = pd.read_excel(uploaded_file, sheet_name='reset_pin', parse_dates=['Timestamp'])
+
+        # Mise à jour de l'activité de l'utilisateur
+        st.session_state["last_active"] = time.time()
+
+    except Exception as e:
+        # Affichage d'un message d'erreur convivial
+        st.error("Veuillez vous assurer que le fichier respecte le template approprié.")
+        st.stop()
     # --------------------------------------
     # Sélection de la période de reporting
     # --------------------------------------
