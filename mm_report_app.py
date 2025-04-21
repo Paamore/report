@@ -94,31 +94,29 @@ from streamlit import sidebar, session_state
 import pandas as pd
 import re
 from io import BytesIO
+import secrets
 import time
+from datetime import datetime, timedelta
+from streamlit_cookies_manager import EncryptedCookieManager
 import openpyxl
 
-TIMEOUT_DURATION = 60 * 15  # 15 minutes
+# Chargement des identifiants de connexion
+USERNAME = st.secrets["auth"]["APP_USERNAME"]
+PASSWORD = st.secrets["auth"]["APP_PASSWORD"]
+SECRET_KEY = st.secrets["cookies"]["SECRET_KEY"]
+TIMEOUT_DURATION = 60 * 2  # 05 minutes
 
-if "last_active" not in st.session_state:
-    st.session_state["last_active"] = time.time()
-if "auth" not in st.session_state:
-    st.session_state["auth"] = False
-
-if time.time() - st.session_state["last_active"] > TIMEOUT_DURATION:
-    st.warning("Session expirée ! Veuillez vous reconnecter.")
-    if st.button("Se reconnecter"):
-        st.session_state["auth"] = False
-        st.query_params.clear()
-        st.session_state["last_active"] = time.time()
-        st.rerun()
+# Configuration des cookies
+cookies = EncryptedCookieManager(prefix="auth_", password=SECRET_KEY)
+if "last_active" not in session_state:
+    session_state["last_active"] = time.time()
+if not cookies.ready():
     st.stop()
-st.session_state["last_active"] = time.time()
 
 # Fonction pour mettre en forme le tableau généré
 def style_dataframe(df):
     for col in df.select_dtypes(include='number').columns:
         df[col] = df[col].astype(int)
-
     styled = df.style.set_table_styles([
         {
             "selector": "thead, th",
@@ -155,21 +153,6 @@ def convert_df_to_excel(df):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
-
-# Fonction de connexion
-def check_credentials():
-    st.sidebar.header("Connexion")
-    username = st.sidebar.text_input("Nom d'utilisateur")
-    password = st.sidebar.text_input("Mot de passe", type="password")
-    if sidebar.button("Se connecter"):
-        if username == USERNAME and password == PASSWORD:
-            st.success("Connecté")
-            st.session_state["auth"] = True
-            st.query_params.update({"auth": "yes"})
-            st.rerun()
-        else:
-            st.sidebar.error("Nom d'utilisateur ou mot de passe invalides")
-    st.stop()
 
 # Fonction principale
 def mm_report(deb, rp):
@@ -216,34 +199,80 @@ def mm_report(deb, rp):
 # --------------------------------------
 # 1. Authentification
 # --------------------------------------
-# Chargement des identifiants de connexion
-USERNAME = st.secrets["auth"]["APP_USERNAME"]
-PASSWORD = st.secrets["auth"]["APP_PASSWORD"]
+def generate_auth_token():
+    return {
+        "token": secrets.token_hex(16),
+        "expires_at": (datetime.now() + timedelta(minutes=5)).isoformat(),
+        "last_active": str(time.time())
+    }
 
-# Vérification des paramètres dans l'URL
-if st.query_params.get("auth") == "yes":
-    st.session_state.auth = True
-    st.session_state["last_active"] = time.time()
+def is_token_valid():
+    token = cookies.get("token")
+    expires_at = cookies.get("expires_at")
+    last_active = cookies.get("last_active")
 
-# Initialisation de l'état de session
-if "auth" not in st.session_state:
-    st.session_state["auth"] = False
+    if not token or not expires_at or not last_active:
+        return False
 
-# Tentative de connexion/ déconnexion si utilisateur déjà connecté
-if not session_state["auth"]:
-    check_credentials()
+    # Expiration
+    if datetime.now() > datetime.fromisoformat(expires_at):
+        return False
+
+    # Inactivité
+    if time.time() - float(last_active) > TIMEOUT_DURATION:
+        return False
+
+    return True
+
+def authenticate_user():
+    sidebar.header("Connexion")
+    # st.write(datetime.fromtimestamp(float(cookies["last_active"])))
+    username = sidebar.text_input("Nom d'utilisateur")
+    password = sidebar.text_input("Mot de passe", type="password")
+    if sidebar.button("Se connecter"):
+        if username == USERNAME and password == PASSWORD:
+            auth_data = generate_auth_token()
+            cookies["token"] = auth_data["token"]
+            cookies["expires_at"] = auth_data["expires_at"]
+            cookies["last_active"] = auth_data["last_active"]
+            st.success("Connecté !")
+            st.rerun()
+        else:
+            sidebar.error("Nom d'utilisateur ou mot de passe invalide")
     st.stop()
+
+# Check auth
+
+if not is_token_valid():
+    # st.write(cookies.get("token"))
+    if not cookies.get("token"):
+        authenticate_user()
+    else:
+        st.warning("Session expirée !")
+        past = (datetime.now() - timedelta(hours=24)).isoformat()
+        if st.button("Se reconnecter"):
+            cookies['token'] = ''
+            cookies['expires_at'] = past
+            cookies['last_active'] = '0'
+            cookies.save()
+            # st.write(cookies)
+            # st.write(session_state)
+            # session_state.clear()
+            st.write(cookies)
+            st.rerun()
+        st.stop()
 else:
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Se déconnecter"):
-        st.session_state["auth"] = False
-        st.query_params.clear()
+    # cookies["last_active"] = str(time.time())
+    if sidebar.button("Se déconnecter"):
+        del cookies["token"]
+        del cookies["expires_at"]
+        del cookies["last_active"]
         st.rerun()
 # --------------------------------------
 # 2. Upload du fichier
 # --------------------------------------
-st.title("PHONING REPORT")
 
+st.title("PHONING REPORT")
 uploaded_file = st.file_uploader("Joindre le fichier Excel", type=["xlsx"])
 
 if uploaded_file:
@@ -253,7 +282,7 @@ if uploaded_file:
         df_2 = pd.read_excel(uploaded_file, sheet_name='reset_pin', parse_dates=['Timestamp'])
 
         # Mise à jour de l'activité de l'utilisateur
-        st.session_state["last_active"] = time.time()
+        session_state["last_active"] = time.time()
 
     except Exception as e:
         # Affichage d'un message d'erreur convivial
@@ -270,7 +299,7 @@ if uploaded_file:
         start_date = st.date_input("📅 Date de début", value=min_date, min_value=min_date, max_value=max_date)
     with col2:
         end_date = st.date_input("📅 Date de fin", value=max_date, min_value=min_date, max_value=max_date)
-    st.session_state["last_active"] = time.time()
+    session_state["last_active"] = time.time()
 
     if start_date > end_date:
         st.error("⚠ La date de début doit être antérieure ou égale à la date de fin.")
@@ -303,7 +332,7 @@ if uploaded_file:
             ##### ☑ Total : {format_number(deb_report['TOTAL'].sum())}
             """, unsafe_allow_html=True)
             to_export = deb_report
-            st.session_state["last_active"] = time.time()
+            session_state["last_active"] = time.time()
         else:
             left_col.subheader("Point des reset pin Agent")
             left_col.write(style_dataframe(agent_report).to_html(),
@@ -316,15 +345,14 @@ if uploaded_file:
                               .sum())}
             """, unsafe_allow_html=True)
             to_export = agent_report
-            st.session_state["last_active"] = time.time()
+            session_state["last_active"] = time.time()
 
     # Exportation
         if not to_export.empty:
             st.download_button(label="Exporter en Excel", data=convert_df_to_excel(to_export),
                                file_name = f"{reporting_type.lower().replace(' ', '_')}.xlsx",
                                mime = "application/vnd.openxmlformats-officedocument.spreadsheet.sheet")
-            st.session_state["last_active"] = time.time()
+            session_state["last_active"] = time.time()
         else:
             st.warning("Aucune donnée à exporter.")
-            st.session_state["last_active"] = time.time()
-
+            session_state["last_active"] = time.time()
