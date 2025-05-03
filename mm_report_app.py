@@ -104,7 +104,7 @@ import openpyxl
 USERNAME = st.secrets["auth"]["APP_USERNAME"]
 PASSWORD = st.secrets["auth"]["APP_PASSWORD"]
 SECRET_KEY = st.secrets["cookies"]["SECRET_KEY"]
-TIMEOUT_DURATION = 60 * 2  # 05 minutes
+TIMEOUT_DURATION = 60 * 15  # 15 minutes
 
 # Configuration des cookies
 cookies = EncryptedCookieManager(prefix="auth_", password=SECRET_KEY)
@@ -202,7 +202,7 @@ def mm_report(deb, rp):
 def generate_auth_token():
     return {
         "token": secrets.token_hex(16),
-        "expires_at": (datetime.now() + timedelta(minutes=5)).isoformat(),
+        "expires_at": (datetime.now() + timedelta(minutes=60)).isoformat(),
         "last_active": str(time.time())
     }
 
